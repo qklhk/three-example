@@ -1,2 +1,1 @@
-# three-example
-threejs example
+# Three-Example
