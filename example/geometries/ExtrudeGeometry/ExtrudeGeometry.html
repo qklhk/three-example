@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ExtrudeGeometry - 挤压缓冲几何体</title>
+    <style>
+      body {
+        overflow: hidden;
+        margin: 0;
+      }
+    </style>
+  </head>
+
+  <body>
+    <canvas class="webgl"></canvas>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "../../../node_modules/three/build/three.module.js",
+          "orbitControls": "../../../node_modules/three/examples/jsm/controls/OrbitControls.js",
+          "gui": "../../../node_modules/dat.gui/build/dat.gui.module.js"
+        }
+      }
+    </script>
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "orbitControls";
+      import * as dat from "gui";
+
+      const lineCurve3ExtrudePath = {
+        isEffect: false,
+        vector3X1: 0,
+        vector3Y1: 0,
+        vector3Z1: 0,
+        vector3X2: 0,
+        vector3Y2: 0,
+        vector3Z2: 10,
+      };
+
+      const shapeStandard = {
+        length: 12,
+        width: 8,
+      };
+
+      const optionsExtrudeGeometry = {
+        curveSegments: 12,
+        steps: 2,
+        depth: 16,
+        bevelEnabled: true,
+        bevelThickness: 0.2,
+        bevelSize: 0.2,
+        bevelOffset: 0,
+        bevelSegments: 3,
+        // UVGenerator: {}, // 暂时不考虑
+      };
+
+      const optionsMaterial = {
+        color: 2388656,
+        wireframe: false,
+        opacity: 1,
+        visible: true,
+      };
+
+      // Canvas
+      const canvas = document.querySelector("canvas.webgl");
+
+      // Sizes
+      const sizes = {
+        width: window.innerWidth,
+        height: window.innerHeight,
+      };
+
+      // Scene
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xe3e3e3);
+
+      // Object
+      // geometry
+      const geometry = createExtrudeGeometry();
+      // material
+      const material = new THREE.MeshBasicMaterial({
+        color: optionsMaterial.color,
+        wireframe: optionsMaterial.wireframe,
+        transparent: true,
+        visible: optionsMaterial.visible,
+      });
+      const mesh = new THREE.Mesh(geometry, material);
+      scene.add(mesh);
+
+      // Camera
+      const camera = new THREE.PerspectiveCamera(
+        45,
+        sizes.width / sizes.height
+      );
+      camera.position.z = 45;
+      scene.add(camera);
+
+      // Renderer
+      const renderer = new THREE.WebGLRenderer({
+        canvas: canvas,
+      });
+      renderer.setSize(sizes.width, sizes.height);
+
+      // Control
+      const controls = new OrbitControls(camera, renderer.domElement);
+
+      function render() {
+        requestAnimationFrame(render);
+
+        mesh.rotation.x += 0.005;
+        mesh.rotation.y += 0.005;
+
+        renderer.render(scene, camera);
+      }
+      render();
+
+      window.addEventListener(
+        "resize",
+        () => {
+          // Update sizes
+          sizes.width = window.innerWidth;
+          sizes.height = window.innerHeight;
+
+          // Update camera
+          camera.aspect = sizes.width / sizes.height;
+          camera.updateProjectionMatrix();
+
+          // Update renderer
+          renderer.setSize(sizes.width, sizes.height);
+        },
+        false
+      );
+
+      // create shape
+      function createShape() {
+        const shape = new THREE.Shape();
+        shape.moveTo(0, 0);
+        shape.lineTo(0, shapeStandard.width);
+        shape.lineTo(shapeStandard.length, shapeStandard.width);
+        shape.lineTo(shapeStandard.length, 0);
+        shape.lineTo(0, 0);
+        return shape;
+      }
+
+      // create extrudeGeometry
+      function createExtrudeGeometry() {
+        const { isEffect } = lineCurve3ExtrudePath;
+
+        const shape = createShape();
+        return new THREE.ExtrudeGeometry(shape, {
+          ...optionsExtrudeGeometry,
+          // 一条沿着被挤出形状的三维样条线,则只有steps属性失效.
+          extrudePath: isEffect && createExtrudeGeometryExtrudePath(),
+        });
+      }
+
+      // update extrudeGeometry
+      function updateExtrudeGeometry() {
+        mesh.geometry.dispose();
+        mesh.geometry = createExtrudeGeometry();
+      }
+
+      // create extrudeGeometry extrudePath
+      function createExtrudeGeometryExtrudePath() {
+        const {
+          vector3X1,
+          vector3Y1,
+          vector3Z1,
+          vector3X2,
+          vector3Y2,
+          vector3Z2,
+        } = lineCurve3ExtrudePath;
+        return new THREE.LineCurve3(
+          new THREE.Vector3(vector3X1, vector3Y1, vector3Z1),
+          new THREE.Vector3(vector3X2, vector3Y2, vector3Z2)
+        );
+      }
+
+      // dat gui
+      const gui = new dat.GUI();
+      gui.width = 300;
+
+      // geometry
+      const folderGeometry = gui.addFolder("ExtrudeGeometry - 挤压缓冲几何体");
+      // shapes
+      const folderGeometryShapes = folderGeometry.addFolder("shapes");
+      folderGeometryShapes
+        .add(shapeStandard, "width", 1, 20, 1)
+        .name("width")
+        .onChange((width) => {
+          shapeStandard.width = width;
+          updateExtrudeGeometry();
+        });
+      folderGeometryShapes
+        .add(shapeStandard, "length", 1, 20, 1)
+        .name("length")
+        .onChange((length) => {
+          shapeStandard.length = length;
+          updateExtrudeGeometry();
+        });
+      folderGeometryShapes.open();
+      // options
+      const folderGeometryOptions = folderGeometry.addFolder("options");
+      folderGeometryOptions
+        .add(optionsExtrudeGeometry, "curveSegments", 1, 20, 1)
+        .name("curveSegments")
+        .onChange((curveSegments) => {
+          optionsExtrudeGeometry.curveSegments = curveSegments;
+          updateExtrudeGeometry();
+        });
+      folderGeometryOptions
+        .add(optionsExtrudeGeometry, "steps", 1, 20, 1)
+        .name("steps")
+        .onChange((steps) => {
+          optionsExtrudeGeometry.steps = steps;
+          updateExtrudeGeometry();
+        });
+      folderGeometryOptions
+        .add(optionsExtrudeGeometry, "depth", 1, 20, 1)
+        .name("depth")
+        .onChange((depth) => {
+          optionsExtrudeGeometry.depth = depth;
+          updateExtrudeGeometry();
+        });
+      folderGeometryOptions
+        .add(optionsExtrudeGeometry, "bevelEnabled")
+        .name("bevelEnabled")
+        .onChange((bevelEnabled) => {
+          optionsExtrudeGeometry.bevelEnabled = bevelEnabled;
+          updateExtrudeGeometry();
+        });
+      folderGeometryOptions
+        .add(optionsExtrudeGeometry, "bevelThickness", 0, 5, 0.1)
+        .name("bevelThickness")
+        .onChange((bevelThickness) => {
+          optionsExtrudeGeometry.bevelThickness = bevelThickness;
+          updateExtrudeGeometry();
+        });
+      folderGeometryOptions
+        .add(optionsExtrudeGeometry, "bevelSize", 0, 5, 0.1)
+        .name("bevelSize")
+        .onChange((bevelSize) => {
+          optionsExtrudeGeometry.bevelSize = bevelSize;
+          updateExtrudeGeometry();
+        });
+      folderGeometryOptions
+        .add(optionsExtrudeGeometry, "bevelOffset", 0, 5, 0.1)
+        .name("bevelOffset")
+        .onChange((bevelOffset) => {
+          optionsExtrudeGeometry.bevelOffset = bevelOffset;
+          updateExtrudeGeometry();
+        });
+      folderGeometryOptions
+        .add(optionsExtrudeGeometry, "bevelSegments", 0, 5, 1)
+        .name("bevelSegments")
+        .onChange((bevelSegments) => {
+          optionsExtrudeGeometry.bevelSegments = bevelSegments;
+          updateExtrudeGeometry();
+        });
+      const optionsExtrudePath = folderGeometryOptions.addFolder("extrudePath");
+      optionsExtrudePath
+        .add(lineCurve3ExtrudePath, "isEffect")
+        .name("effect")
+        .onChange((effect) => {
+          lineCurve3ExtrudePath.isEffect = effect;
+          updateExtrudeGeometry();
+        });
+      const optionsExtrudePathV1 = optionsExtrudePath.addFolder("v1");
+      optionsExtrudePathV1
+        .add(lineCurve3ExtrudePath, "vector3X1", 0, 20, 1)
+        .name("x")
+        .onChange((x) => {
+          lineCurve3ExtrudePath.vector3X1 = x;
+          updateExtrudeGeometry();
+        });
+      optionsExtrudePathV1
+        .add(lineCurve3ExtrudePath, "vector3Y1", 0, 20, 1)
+        .name("y")
+        .onChange((y) => {
+          lineCurve3ExtrudePath.vector3Y1 = y;
+          updateExtrudeGeometry();
+        });
+      optionsExtrudePathV1
+        .add(lineCurve3ExtrudePath, "vector3Z1", 0, 20, 1)
+        .name("z")
+        .onChange((z) => {
+          lineCurve3ExtrudePath.vector3Z1 = z;
+          updateExtrudeGeometry();
+        });
+
+      const optionsExtrudePathV2 = optionsExtrudePath.addFolder("v2");
+      optionsExtrudePathV2
+        .add(lineCurve3ExtrudePath, "vector3X2", 0, 20, 1)
+        .name("x")
+        .onChange((x) => {
+          lineCurve3ExtrudePath.vector3X2 = x;
+          updateExtrudeGeometry();
+        });
+      optionsExtrudePathV2
+        .add(lineCurve3ExtrudePath, "vector3Y2", 0, 20, 1)
+        .name("y")
+        .onChange((y) => {
+          lineCurve3ExtrudePath.vector3Y2 = y;
+          updateExtrudeGeometry();
+        });
+      optionsExtrudePathV2
+        .add(lineCurve3ExtrudePath, "vector3Z2", 0, 20, 1)
+        .name("z")
+        .onChange((z) => {
+          lineCurve3ExtrudePath.vector3Z2 = z;
+          updateExtrudeGeometry();
+        });
+
+      folderGeometryOptions.open();
+      folderGeometry.open();
+
+      // material
+      const folderMaterial = gui.addFolder("MeshBasicMaterial - 基础网格材质");
+      folderMaterial
+        .addColor(optionsMaterial, "color")
+        .name("color")
+        .onChange((color) => {
+          optionsMaterial.color = color;
+          material.color = new THREE.Color(color);
+        });
+      folderMaterial
+        .add(optionsMaterial, "wireframe")
+        .name("wireframe")
+        .onChange((wireframe) => {
+          optionsMaterial.wireframe = wireframe;
+          material.wireframe = wireframe;
+        });
+      folderMaterial
+        .add(optionsMaterial, "opacity", 0.1, 1, 0.1)
+        .name("opacity")
+        .onChange((opacity) => {
+          optionsMaterial.opacity = opacity;
+          material.opacity = opacity;
+        });
+      folderMaterial
+        .add(optionsMaterial, "visible")
+        .name("visible")
+        .onChange((visible) => {
+          optionsMaterial.visible = visible;
+          material.visible = visible;
+        });
+    </script>
+  </body>
+</html>

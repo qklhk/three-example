@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OctahedronGeometry - 八面缓冲几何体</title>
+    <style>
+      body {
+        overflow: hidden;
+        margin: 0;
+      }
+    </style>
+  </head>
+
+  <body>
+    <canvas class="webgl"></canvas>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "../../../node_modules/three/build/three.module.js",
+          "orbitControls": "../../../node_modules/three/examples/jsm/controls/OrbitControls.js",
+          "gui": "../../../node_modules/dat.gui/build/dat.gui.module.js"
+        }
+      }
+    </script>
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "orbitControls";
+      import * as dat from "gui";
+
+      const optionsGeometry = {
+        radius: 10,
+        detail: 0,
+      };
+
+      const optionsMaterial = {
+        color: 2388656,
+        wireframe: false,
+        opacity: 1,
+        visible: true,
+      };
+
+      // Canvas
+      const canvas = document.querySelector("canvas.webgl");
+
+      // Sizes
+      const sizes = {
+        width: window.innerWidth,
+        height: window.innerHeight,
+      };
+
+      // Scene
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xe3e3e3);
+
+      // Object
+      const geometry = createOctahedronGeometry();
+      const material = new THREE.MeshBasicMaterial({
+        color: optionsMaterial.color,
+        wireframe: optionsMaterial.wireframe,
+        opacity: optionsMaterial.opacity,
+        transparent: true,
+        visible: optionsMaterial.visible,
+      });
+
+      const mesh = new THREE.Mesh(geometry, material);
+      scene.add(mesh);
+
+      // Camera
+      const camera = new THREE.PerspectiveCamera(
+        45,
+        sizes.width / sizes.height
+      );
+      camera.position.z = 45;
+      scene.add(camera);
+
+      // Renderer
+      const renderer = new THREE.WebGLRenderer({
+        canvas: canvas,
+      });
+      renderer.setSize(sizes.width, sizes.height);
+
+      // Control
+      const controls = new OrbitControls(camera, renderer.domElement);
+
+      function render() {
+        requestAnimationFrame(render);
+
+        mesh.rotation.x += 0.005;
+        mesh.rotation.y += 0.005;
+
+        renderer.render(scene, camera);
+      }
+      render();
+
+      window.addEventListener(
+        "resize",
+        () => {
+          // Update sizes
+          sizes.width = window.innerWidth;
+          sizes.height = window.innerHeight;
+
+          // Update camera
+          camera.aspect = sizes.width / sizes.height;
+          camera.updateProjectionMatrix();
+
+          // Update renderer
+          renderer.setSize(sizes.width, sizes.height);
+        },
+        false
+      );
+
+      // dat gui
+      const gui = new dat.GUI();
+      gui.width = 300;
+
+      const folderGeometry = gui.addFolder(
+        "OctahedronGeometry - 八面缓冲几何体"
+      );
+      folderGeometry
+        .add(optionsGeometry, "radius", 1, 15, 1)
+        .name("radius")
+        .onChange((radius) => {
+          optionsGeometry.radius = radius;
+          updateMeshGeometry();
+        });
+      folderGeometry
+        .add(optionsGeometry, "detail", 0, 10, 1)
+        .name("detail")
+        .onChange((detail) => {
+          optionsGeometry.detail = detail;
+          updateMeshGeometry();
+        });
+      folderGeometry.open();
+
+      const folderMaterial = gui.addFolder("MeshBasicMaterial - 基础网格材质");
+      folderMaterial
+        .addColor(optionsMaterial, "color")
+        .name("color")
+        .onChange((color) => {
+          optionsMaterial.color = color;
+          material.color = new THREE.Color(color);
+        });
+      folderMaterial
+        .add(optionsMaterial, "wireframe")
+        .name("wireframe")
+        .onChange((wireframe) => {
+          optionsMaterial.wireframe = wireframe;
+          material.wireframe = wireframe;
+        });
+      folderMaterial
+        .add(optionsMaterial, "opacity", 0.1, 1, 0.1)
+        .name("opacity")
+        .onChange((opacity) => {
+          optionsMaterial.opacity = opacity;
+          material.opacity = opacity;
+        });
+      folderMaterial
+        .add(optionsMaterial, "visible")
+        .name("visible")
+        .onChange((visible) => {
+          optionsMaterial.visible = visible;
+          material.visible = visible;
+        });
+      folderMaterial.open();
+
+      // create / update
+      function createOctahedronGeometry() {
+        const { radius, detail } = optionsGeometry;
+        return new THREE.OctahedronGeometry(radius, detail);
+      }
+
+      function updateMeshGeometry() {
+        mesh.geometry.dispose();
+        mesh.geometry = createOctahedronGeometry();
+      }
+    </script>
+  </body>
+</html>
