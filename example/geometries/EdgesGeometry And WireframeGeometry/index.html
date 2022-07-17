@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EdgesGeometry - 边缘几何体 And WireframeGeometry - 网格几何体</title>
+    <style>
+      body {
+        overflow: hidden;
+        margin: 0;
+      }
+    </style>
+  </head>
+
+  <body>
+    <canvas class="webgl"></canvas>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "../../../node_modules/three/build/three.module.js",
+          "orbitControls": "../../../node_modules/three/examples/jsm/controls/OrbitControls.js",
+          "gLTFLoader": "../../../node_modules/three/examples/jsm/loaders/GLTFLoader.js",
+          "vertexNormalsHelper": "../../../node_modules/three/examples/jsm/helpers/VertexNormalsHelper.js",
+          "vertexTangentsHelper": "../../../node_modules/three/examples/jsm/helpers/VertexTangentsHelper.js",
+          "gui": "../../../node_modules/dat.gui/build/dat.gui.module.js"
+        }
+      }
+    </script>
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "orbitControls";
+      import { GLTFLoader } from "gLTFLoader";
+      import { VertexNormalsHelper } from "vertexNormalsHelper";
+      import { VertexTangentsHelper } from "vertexTangentsHelper";
+      import * as dat from "gui";
+
+      let gltfMesh;
+      let vnh, vth;
+
+      const optionsGeometry = {
+        thresholdAngle: 1,
+      };
+
+      const optionsVertexNormalsHelper = {
+        size: 3,
+        color: 0xff0000,
+        lineWidth: 1,
+      };
+
+      const optionsVertexTangentsHelper = {
+        size: 3,
+        color: 0x00ffff,
+        lineWidth: 1,
+      };
+
+      const lineLeft = {
+        opacity: 0.25,
+        positionX: 4,
+      };
+      const lineRight = {
+        opacity: 0.25,
+        positionX: 4,
+      };
+
+      // Canvas
+      const canvas = document.querySelector("canvas.webgl");
+
+      // Sizes
+      const sizes = {
+        width: window.innerWidth,
+        height: window.innerHeight,
+      };
+
+      // Scene
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xe3e3e3);
+
+      // Camera
+      const camera = new THREE.PerspectiveCamera(
+        45,
+        sizes.width / sizes.height
+      );
+      camera.position.z = 800;
+      scene.add(camera);
+
+      const group = new THREE.Group();
+
+      // loader
+      const loader = new GLTFLoader();
+      loader.load(
+        "../../../models/gltf/LeePerrySmith/LeePerrySmith.glb",
+        function (gltf) {
+          gltfMesh = gltf.scene.children[0];
+
+          // generates bad data due to degenerate UVs
+          // 计算并向该几何图形添加切线属性
+          gltfMesh.geometry.computeTangents();
+
+          group.scale.multiplyScalar(50);
+          scene.add(group);
+
+          // To make sure that the matrixWorld is up to date for the boxhelpers
+          // 更新物体及其后代的全局变换
+          group.updateMatrixWorld(true);
+
+          group.add(gltfMesh);
+
+          vertexNormalsHelperAddScene();
+          vertexTangentsHelperAdsScene();
+
+          groupAddLineSegmentsLeft();
+          groupAddLineSegmentsRight();
+        }
+      );
+
+      // Renderer
+      const renderer = new THREE.WebGLRenderer({
+        canvas: canvas,
+      });
+      renderer.setSize(sizes.width, sizes.height);
+
+      // Control
+      const controls = new OrbitControls(camera, renderer.domElement);
+
+      function render() {
+        requestAnimationFrame(render);
+
+        if (vnh) vnh.update();
+
+        renderer.render(scene, camera);
+      }
+      render();
+
+      window.addEventListener(
+        "resize",
+        () => {
+          // Update sizes
+          sizes.width = window.innerWidth;
+          sizes.height = window.innerHeight;
+
+          // Update camera
+          camera.aspect = sizes.width / sizes.height;
+          camera.updateProjectionMatrix();
+
+          // Update renderer
+          renderer.setSize(sizes.width, sizes.height);
+        },
+        false
+      );
+
+      // scene add vertexNormalsHelper
+      function vertexNormalsHelperAddScene() {
+        const { size, color, lineWidth } = optionsVertexNormalsHelper;
+        vnh = new VertexNormalsHelper(gltfMesh, size, color, lineWidth);
+        scene.add(vnh);
+      }
+      // scene update vertexNormalsHelper
+      function vertexNormalsHelperUpdateScene() {
+        scene.remove(vnh);
+        vertexNormalsHelperAddScene();
+      }
+
+      // scene add vertexTangentsHelper
+      function vertexTangentsHelperAdsScene() {
+        const { size, color, lineWidth } = optionsVertexTangentsHelper;
+        vth = new VertexTangentsHelper(gltfMesh, size, color, lineWidth);
+        scene.add(vth);
+      }
+      // scene update vertexTangentsHelper
+      function vertexTangentsHelperUpdate() {
+        scene.remove(vth);
+        vertexTangentsHelperAdsScene();
+      }
+
+      // group add LineSegments left
+      function groupAddLineSegmentsLeft() {
+        const { opacity, positionX } = lineLeft;
+
+        const wireframe = new THREE.WireframeGeometry(gltfMesh.geometry);
+        let line = new THREE.LineSegments(wireframe);
+        line.material.opacity = opacity;
+        line.material.transparent = true;
+        line.position.x = positionX;
+        group.add(line);
+      }
+
+      // group add LineSegments Right
+      function groupAddLineSegmentsRight() {
+        const { opacity, positionX } = lineRight;
+        const edges = new THREE.EdgesGeometry(
+          gltfMesh.geometry,
+          optionsGeometry.thresholdAngle
+        );
+        const line = new THREE.LineSegments(edges);
+        line.material.opacity = opacity;
+        line.material.transparent = true;
+        line.position.x = -positionX;
+        group.add(line);
+      }
+
+      // dat gui
+      const gui = new dat.GUI();
+      gui.width = 280;
+
+      const folderGeometry = gui.addFolder("EdgesGeometry - 边缘几何体");
+      folderGeometry
+        .add(optionsGeometry, "thresholdAngle", 1, 20, 1)
+        .name("thresholdAngle")
+        .onChange((thresholdAngle) => {
+          optionsGeometry.thresholdAngle = thresholdAngle;
+
+          const mesh = group.children[2];
+          mesh.geometry.dispose();
+          mesh.geometry = new THREE.EdgesGeometry(
+            gltfMesh.geometry,
+            optionsGeometry.thresholdAngle
+          );
+        });
+
+      folderGeometry.open();
+
+      const folderLineSegmentsLeft = gui.addFolder(
+        "lineSegments left - 线段物体"
+      );
+      folderLineSegmentsLeft
+        .add(lineLeft, "opacity", 0, 1, 0.1)
+        .name("opacity")
+        .onChange((opacity) => {
+          lineLeft.opacity = opacity;
+
+          const mesh = group.children[2];
+          mesh.material.opacity = opacity;
+        });
+      folderLineSegmentsLeft
+        .add(lineLeft, "positionX", 0, 10, 0.1)
+        .name("positionX")
+        .onChange((x) => {
+          lineLeft.positionX = x;
+
+          const mesh = group.children[2];
+          mesh.position.x = -x;
+        });
+      folderLineSegmentsLeft.open();
+
+      const folderLineSegmentsRight = gui.addFolder(
+        "lineSegments right - 线段物体"
+      );
+      folderLineSegmentsRight
+        .add(lineRight, "opacity", 0, 1, 0.1)
+        .name("opacity")
+        .onChange((opacity) => {
+          lineRight.opacity = opacity;
+
+          const mesh = group.children[1];
+          mesh.material.opacity = opacity;
+        });
+      folderLineSegmentsRight
+        .add(lineRight, "positionX", 0, 10, 0.1)
+        .name("positionX")
+        .onChange((x) => {
+          lineRight.positionX = x;
+
+          const mesh = group.children[1];
+          mesh.position.x = x;
+        });
+      folderLineSegmentsRight.open();
+
+      const folderVertexNormalsHelper = gui.addFolder(
+        "VertexNormalsHelper - 顶点的法线辅助对象"
+      );
+      folderVertexNormalsHelper
+        .add(optionsVertexNormalsHelper, "size", 1, 5, 1)
+        .name("size")
+        .onChange((size) => {
+          optionsVertexNormalsHelper.size = size;
+          vertexNormalsHelperUpdateScene();
+        });
+      folderVertexNormalsHelper
+        .addColor(optionsVertexNormalsHelper, "color")
+        .name("color")
+        .onChange((color) => {
+          optionsVertexNormalsHelper.color = color;
+          vertexNormalsHelperUpdateScene();
+        });
+      folderVertexNormalsHelper.open();
+
+      const folderVertexTangentsHelper = gui.addFolder(
+        "VertexTangentsHelper - 顶点切向量辅助对象"
+      );
+      folderVertexTangentsHelper
+        .add(optionsVertexTangentsHelper, "size", 1, 5, 1)
+        .name("size")
+        .onChange((size) => {
+          optionsVertexTangentsHelper.size = size;
+          vertexTangentsHelperUpdate();
+        });
+      folderVertexTangentsHelper
+        .addColor(optionsVertexTangentsHelper, "color")
+        .name("color")
+        .onChange((color) => {
+          optionsVertexTangentsHelper.color = color;
+          vertexTangentsHelperUpdate();
+        });
+      folderVertexTangentsHelper.open();
+    </script>
+  </body>
+</html>
